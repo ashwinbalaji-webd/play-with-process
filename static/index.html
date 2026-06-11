@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>play-with-process</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07131d;
+        --bg-panel: rgba(8, 22, 35, 0.74);
+        --bg-panel-strong: rgba(8, 22, 35, 0.92);
+        --line: rgba(135, 206, 235, 0.16);
+        --text: #eaf6ff;
+        --muted: #8ca9bf;
+        --cyan: #61e4ff;
+        --lime: #9df08f;
+        --amber: #ffbf69;
+        --rose: #ff7d7d;
+      }
+
+      body {
+        background:
+          radial-gradient(circle at top left, rgba(62, 176, 255, 0.18), transparent 28%),
+          radial-gradient(circle at 85% 15%, rgba(157, 240, 143, 0.12), transparent 20%),
+          linear-gradient(160deg, #041018 0%, #081a28 55%, #07131d 100%);
+        color: var(--text);
+        font-family: "Space Grotesk", sans-serif;
+      }
+
+      .font-mono {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        background: var(--bg-panel);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+      }
+
+      .soft-grid {
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+        background-size: 22px 22px;
+      }
+
+      .glow-ring {
+        box-shadow:
+          0 0 0 1px rgba(97, 228, 255, 0.14),
+          0 0 28px rgba(97, 228, 255, 0.08);
+      }
+
+      .reveal {
+        animation: reveal 500ms ease both;
+      }
+
+      .float-slow {
+        animation: float 8s ease-in-out infinite;
+      }
+
+      @keyframes reveal {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal,
+        .float-slow {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body class="min-h-screen overflow-x-hidden selection:bg-cyan-400/25">
+    <div class="pointer-events-none fixed inset-0 overflow-hidden">
+      <div class="float-slow absolute -left-10 top-8 h-52 w-52 rounded-full bg-cyan-300/10 blur-3xl"></div>
+      <div class="float-slow absolute right-0 top-32 h-72 w-72 rounded-full bg-lime-300/10 blur-3xl"></div>
+      <div class="absolute inset-0 soft-grid opacity-50"></div>
+    </div>
+
+    <main class="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section class="grid gap-6 lg:items-start lg:grid-cols-[1.25fr,0.95fr]">
+        <div class="panel reveal self-start rounded-[2rem] p-6 sm:p-8">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-2xl">
+              <p class="font-mono text-xs uppercase tracking-[0.35em] text-cyan-200/70">
+                Process Playground
+              </p>
+              <h1 class="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+                Learn what the scheduler is actually doing.
+              </h1>
+              <p class="mt-4 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+                Spawn isolated workers, pin cores, change niceness, inflate memory, and
+                inject outside CPU pressure. The goal is not just to move graphs, but to
+                understand why they move.
+              </p>
+            </div>
+
+            <div class="panel glow-ring rounded-3xl bg-[var(--bg-panel-strong)] p-4">
+              <p class="font-mono text-xs uppercase tracking-[0.3em] text-slate-400">
+                Stream Status
+              </p>
+              <div class="mt-3 flex items-center gap-3">
+                <span id="connection-indicator" class="h-3 w-3 rounded-full bg-amber-300"></span>
+                <div>
+                  <p id="connection-label" class="text-sm font-medium">Connecting</p>
+                  <p id="last-updated" class="font-mono text-xs text-slate-400">Waiting for metrics</p>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center gap-3">
+                <label for="refresh-interval" class="font-mono text-xs uppercase tracking-[0.25em] text-slate-400">
+                  Interval
+                </label>
+                <select
+                  id="refresh-interval"
+                  class="rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none transition hover:border-cyan-300/30"
+                >
+                  <option value="500">500ms</option>
+                  <option value="1000" selected>1000ms</option>
+                  <option value="2000">2000ms</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8">
+            <div class="rounded-[1.75rem] border border-white/10 bg-slate-950/30 p-5">
+              <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p class="font-mono text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Spawn Workers
+                  </p>
+                  <p class="mt-2 text-sm text-slate-300">
+                    Each worker starts with a task profile and an adjustable thread count.
+                  </p>
+                </div>
+                <label class="text-sm text-slate-300">
+                  <span class="mb-2 block font-mono text-xs uppercase tracking-[0.25em] text-slate-400">
+                    Initial Threads
+                  </span>
+                  <input
+                    id="initial-threads"
+                    type="number"
+                    min="1"
+                    max="16"
+                    value="1"
+                    class="w-24 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-center text-slate-100 outline-none transition hover:border-cyan-300/30"
+                  />
+                </label>
+              </div>
+
+              <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                <button
+                  data-spawn-task="LOW"
+                  class="spawn-btn rounded-3xl border border-emerald-300/20 bg-emerald-300/8 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-200/35 hover:bg-emerald-300/14"
+                >
+                  <span class="font-mono text-xs uppercase tracking-[0.25em] text-emerald-200/80">Low</span>
+                  <strong class="mt-2 block text-lg">Gentle churn</strong>
+                  <span class="mt-2 block text-sm text-slate-300">Math bursts with sleeps and high voluntary yielding.</span>
+                </button>
+                <button
+                  data-spawn-task="MEDIUM"
+                  class="spawn-btn rounded-3xl border border-cyan-300/20 bg-cyan-300/8 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-200/35 hover:bg-cyan-300/14"
+                >
+                  <span class="font-mono text-xs uppercase tracking-[0.25em] text-cyan-200/80">Medium</span>
+                  <strong class="mt-2 block text-lg">Steady hum</strong>
+                  <span class="mt-2 block text-sm text-slate-300">Hash bursts with short breathers and mid-level pressure.</span>
+                </button>
+                <button
+                  data-spawn-task="HIGH"
+                  class="spawn-btn rounded-3xl border border-rose-300/20 bg-rose-300/8 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-rose-200/35 hover:bg-rose-300/14"
+                >
+                  <span class="font-mono text-xs uppercase tracking-[0.25em] text-rose-200/80">High</span>
+                  <strong class="mt-2 block text-lg">Core spike</strong>
+                  <span class="mt-2 block text-sm text-slate-300">A hot busy loop that wants to consume a full logical CPU.</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-[1.75rem] border border-white/10 bg-slate-950/30 p-5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="font-mono text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Quick Actions
+                  </p>
+                  <p class="mt-2 text-sm text-slate-300">
+                    Reset the lab quickly, or inject outside pressure with the Chaos Monkey.
+                  </p>
+                </div>
+                <button
+                  id="kill-all"
+                  class="rounded-2xl border border-rose-300/25 bg-rose-300/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:border-rose-200/40 hover:bg-rose-300/16"
+                >
+                  Kill All
+                </button>
+              </div>
+
+              <div class="mt-6 rounded-3xl border border-white/8 bg-slate-950/45 p-4">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Chaos Monkey</p>
+                    <p class="mt-2 text-sm leading-6 text-slate-300">
+                      Bind a temporary outside hog to one core and watch unpinned workers react.
+                    </p>
+                  </div>
+                  <button
+                    id="spawn-chaos"
+                    class="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-2 text-sm font-medium text-amber-50 transition hover:border-amber-200/40 hover:bg-amber-300/16"
+                  >
+                    Launch Chaos
+                  </button>
+                </div>
+                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label class="text-sm text-slate-300">
+                    <span class="mb-2 block font-mono text-xs uppercase tracking-[0.25em] text-slate-400">Target Core</span>
+                    <select
+                      id="chaos-core"
+                      class="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none transition hover:border-cyan-300/30"
+                    ></select>
+                  </label>
+                  <label class="text-sm text-slate-300">
+                    <span class="mb-2 block font-mono text-xs uppercase tracking-[0.25em] text-slate-400">Duration</span>
+                    <select
+                      id="chaos-duration"
+                      class="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none transition hover:border-cyan-300/30"
+                    >
+                      <option value="6">6 seconds</option>
+                      <option value="10" selected>10 seconds</option>
+                      <option value="15">15 seconds</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="mt-6 grid gap-3">
+                <div class="rounded-3xl border border-white/8 bg-slate-950/45 p-4">
+                  <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">How To Read It</p>
+                  <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-300">
+                    <li>Per-core bars are system-wide. They include your browser, the FastAPI server, and the OS, not only one worker.</li>
+                    <li>One busy Python thread usually means about one logical CPU of total work, even when many cores are allowed.</li>
+                    <li>Use <span class="font-mono">Current CPU</span>, <span class="font-mono">PID CPU</span>, and affinity together to reason about migration.</li>
+                  </ul>
+                </div>
+                <div class="rounded-3xl border border-white/8 bg-slate-950/45 p-4">
+                  <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Platform Note</p>
+                  <p id="affinity-note" class="mt-2 text-sm leading-6 text-slate-300">
+                    Checking platform capabilities.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel reveal rounded-[2rem] p-6 sm:p-8">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-mono text-xs uppercase tracking-[0.3em] text-slate-400">Machine Snapshot</p>
+              <h2 class="mt-3 text-2xl font-semibold">Live telemetry</h2>
+            </div>
+            <div class="rounded-full border border-cyan-300/15 bg-cyan-300/8 px-3 py-1 text-xs font-medium text-cyan-100">
+              WebSocket
+            </div>
+          </div>
+
+          <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div class="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+              <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Global CPU</p>
+              <p id="summary-global-cpu" class="mt-3 text-4xl font-bold">0%</p>
+            </div>
+            <div class="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+              <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Memory</p>
+              <p id="summary-memory" class="mt-3 text-4xl font-bold">0%</p>
+            </div>
+            <div class="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+              <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Workers</p>
+              <p id="summary-processes" class="mt-3 text-4xl font-bold">0</p>
+            </div>
+            <div class="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+              <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Chaos</p>
+              <p id="summary-chaos" class="mt-3 text-4xl font-bold">0</p>
+            </div>
+            <div class="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+              <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Active Threads</p>
+              <p id="summary-threads" class="mt-3 text-4xl font-bold">0</p>
+            </div>
+          </div>
+
+          <div class="mt-6 rounded-3xl border border-cyan-300/12 bg-cyan-300/6 p-4 text-sm leading-6 text-slate-200">
+            <span class="font-mono text-xs uppercase tracking-[0.25em] text-cyan-100/80">Reading Tip</span>
+            <p class="mt-2">
+              If a single HIGH worker shows around <span class="font-mono">100%</span> CPU but the hotspot moves between cores, that usually means the scheduler is migrating one hot thread between eligible CPUs.
+            </p>
+          </div>
+
+          <div class="mt-6">
+            <div class="mb-3 flex items-center justify-between">
+              <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Per-Core CPU</p>
+              <p id="core-count" class="font-mono text-xs text-slate-400">0 cores</p>
+            </div>
+            <div id="core-grid" class="grid gap-3 sm:grid-cols-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel reveal mt-6 rounded-[2rem] p-6 sm:p-8">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="font-mono text-xs uppercase tracking-[0.3em] text-slate-400">Worker Board</p>
+            <h2 class="mt-3 text-2xl font-semibold">Playful controls, explicit learning notes</h2>
+            <p class="mt-2 text-sm text-slate-300">
+              Every card tries to answer two questions: what changed, and what should you notice next.
+            </p>
+          </div>
+          <div class="rounded-full border border-white/10 bg-slate-950/50 px-4 py-2 font-mono text-xs text-slate-400">
+            Affinity + Niceness + Context Switches + Memory + Chaos
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-[1.75rem] border border-white/10 bg-slate-950/30 p-5">
+          <p class="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Before You Compare</p>
+          <p class="mt-3 text-sm leading-7 text-slate-300">
+            The strongest mental model for this app is: <span class="font-mono">per-core bars = machine view</span>,
+            <span class="font-mono">PID CPU = process view</span>, and
+            <span class="font-mono">Current CPU + affinity = scheduler placement view</span>.
+          </p>
+        </div>
+
+        <div class="mt-6">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xl font-semibold">Active Chaos</h3>
+            <p class="font-mono text-xs text-slate-400">Temporary outside pressure</p>
+          </div>
+          <div id="chaos-grid" class="mt-4 grid gap-4 xl:grid-cols-2"></div>
+        </div>
+
+        <div class="mt-8">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xl font-semibold">Playground Workers</h3>
+            <p class="font-mono text-xs text-slate-400">Interactive process cards</p>
+          </div>
+          <div id="process-grid" class="mt-4 grid gap-4 xl:grid-cols-2"></div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast-stack" class="fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-3 px-4"></div>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
